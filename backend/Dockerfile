@@ -9,7 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o server cmd/main.go
+RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-DSQLITE_ENABLE_FTS5" go build -o server cmd/main.go
 
 FROM alpine:latest
 
