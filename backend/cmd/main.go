@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	db, err := database.New("notes.db")
+	db, err := database.New("data/notes.db")
 	if err != nil {
 		log.Fatal("Error connecting to database:", err)
 	}
