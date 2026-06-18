@@ -18,6 +18,7 @@ func main() {
 	defer db.Close()
 
 	notesHandler := handlers.NewNotesHandler(db)
+	authHandler := handlers.NewAuthHandler(db)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -27,7 +28,11 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
+	r.Post("/auth/register", authHandler.Register)
+	r.Post("/auth/login", authHandler.Login)
+
 	r.Route("/api/notes", func(r chi.Router) {
+		r.Use(handlers.AuthMiddleware)
 		r.Get("/", notesHandler.List)
 		r.Post("/", notesHandler.Create)
 		r.Get("/search", notesHandler.Search)
@@ -41,4 +46,3 @@ func main() {
 	log.Println("Server running on :8080")
 	http.ListenAndServe(":8080", r)
 }
-
