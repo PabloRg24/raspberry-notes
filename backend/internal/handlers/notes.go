@@ -19,7 +19,8 @@ func NewNotesHandler(db *sql.DB) *NotesHandler {
 }
 
 func (h *NotesHandler) List(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Query(`SELECT id, title, content, tags, created_at, updated_at FROM notes ORDER BY updated_at DESC`)
+	userID := GetUserID(r)
+	rows, err := h.db.Query(`SELECT id, title, content, tags, created_at, updated_at FROM notes WHERE user_id = ? ORDER BY updated_at DESC`, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -41,6 +42,7 @@ func (h *NotesHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NotesHandler) Create(w http.ResponseWriter, r *http.Request) {
+	userID := GetUserID(r)
 	var n models.Note
 	if err := json.NewDecoder(r.Body).Decode(&n); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -48,8 +50,8 @@ func (h *NotesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.db.Exec(
-		`INSERT INTO notes (title, content, tags) VALUES (?, ?, ?)`,
-		n.Title, n.Content, n.Tags,
+		`INSERT INTO notes (user_id, title, content, tags) VALUES (?, ?, ?, ?)`,
+		userID, n.Title, n.Content, n.Tags,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -63,6 +65,7 @@ func (h *NotesHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NotesHandler) Update(w http.ResponseWriter, r *http.Request) {
+	userID := GetUserID(r)
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
@@ -76,8 +79,8 @@ func (h *NotesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.db.Exec(
-		`UPDATE notes SET title=?, content=?, tags=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-		n.Title, n.Content, n.Tags, id,
+		`UPDATE notes SET title=?, content=?, tags=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?`,
+		n.Title, n.Content, n.Tags, id, userID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -90,13 +93,14 @@ func (h *NotesHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NotesHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	userID := GetUserID(r)
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
-	_, err = h.db.Exec(`DELETE FROM notes WHERE id=?`, id)
+	_, err = h.db.Exec(`DELETE FROM notes WHERE id=? AND user_id=?`, id, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -106,6 +110,7 @@ func (h *NotesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NotesHandler) Search(w http.ResponseWriter, r *http.Request) {
+	userID := GetUserID(r)
 	q := r.URL.Query().Get("q")
 	if q == "" {
 		http.Error(w, "missing query", http.StatusBadRequest)
@@ -116,9 +121,9 @@ func (h *NotesHandler) Search(w http.ResponseWriter, r *http.Request) {
 		SELECT n.id, n.title, n.content, n.tags, n.created_at, n.updated_at
 		FROM notes n
 		JOIN notes_fts ON notes_fts.rowid = n.id
-		WHERE notes_fts MATCH ?
+		WHERE notes_fts MATCH ? AND n.user_id = ?
 		ORDER BY rank
-	`, q)
+	`, q, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

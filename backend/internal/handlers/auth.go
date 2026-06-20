@@ -59,9 +59,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		secret = "changeme"
 	}
 
+	var userID int64
+	err = h.db.QueryRow(`SELECT id FROM users WHERE username = ?`, req.Username).Scan(&userID)
+	if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": req.Username,
-		"exp":      time.Now().Add(24 * time.Hour).Unix(),
+    	"username": req.Username,
+    	"user_id":  userID,
+    	"exp":      time.Now().Add(24 * time.Hour).Unix(),
 	})
 
 	tokenString, err := token.SignedString([]byte(secret))

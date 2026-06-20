@@ -1,12 +1,17 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+type contextKey string
+
+const userIDKey contextKey = "user_id"
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +41,15 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		claims := token.Claims.(jwt.MapClaims)
+		userID := int64(claims["user_id"].(float64))
+		ctx := context.WithValue(r.Context(), userIDKey, userID)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func GetUserID(r *http.Request) int64 {
+	userID, _ := r.Context().Value(userIDKey).(int64)
+	return userID
 }
